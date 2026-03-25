@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equipe Beatriz & Rodrigo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" id="hlTheme" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
+</head>
+<body>
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="btn-icon sidebar-toggle" id="sidebarToggle">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-logo">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        Beatriz <b>&amp;</b> Rodrigo
+      </span>
+    </div>
+
+    <div class="topbar-center">
+      <div class="search-box" id="searchBox">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Buscar docs… (⌘K)" autocomplete="off" />
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="view-tabs">
+        <button class="view-tab active" data-view="docs">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
+          </svg>
+          Docs
+        </button>
+        <button class="view-tab" data-view="chat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Agentes
+        </button>
+      </div>
+      <button class="btn-icon" id="themeToggle">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Search overlay -->
+  <div class="search-overlay" id="searchOverlay">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="tree-scroll">
+        <div class="tree" id="treeDocs">
+          <div class="tree-loading"><span class="spinner"></span> Carregando…</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="content">
+
+      <!-- DOCS VIEW -->
+      <div class="view-panel active" id="view-docs">
+        <div class="welcome" id="welcome">
+          <div class="welcome-heart">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </div>
+          <h1>Equipe Beatriz & Rodrigo</h1>
+          <p>Explore os docs ou converse com os squads de agentes.</p>
+          <div class="welcome-stats">
+            <div class="stat"><span id="statDocs">—</span><label>Documentos</label></div>
+            <div class="stat"><span id="statSquads">—</span><label>Squads</label></div>
+          </div>
+          <button class="btn-cta" onclick="switchView('chat')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Enviar tarefa para um squad
+          </button>
+        </div>
+        <article class="doc-view hidden" id="docView">
+          <div class="doc-header">
+            <div class="doc-breadcrumb" id="docBreadcrumb"></div>
+            <button class="btn-icon" id="copyPathBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+          <div class="doc-body" id="docBody"></div>
+        </article>
+      </div>
+
+      <!-- CHAT / AGENTS VIEW -->
+      <div class="view-panel" id="view-chat">
+        <div class="chat-layout">
+
+          <!-- Squad selector -->
+          <div class="squad-selector" id="squadSelector">
+            <div class="selector-loading"><span class="spinner"></span> Carregando squads…</div>
+          </div>
+
+          <!-- Agent selector (shown after squad selection) -->
+          <div class="agent-selector hidden" id="agentSelector">
+            <div class="agent-selector-inner" id="agentSelectorInner"></div>
+          </div>
+
+          <!-- Messages -->
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-welcome" id="chatWelcome">
+              <div class="chat-welcome-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <p>Selecione um <strong>squad</strong> e um <strong>agente</strong> acima<br/>para começar a enviar tarefas.</p>
+              <div class="chat-suggestions hidden" id="chatSuggestions"></div>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="chat-input-area">
+            <div class="chat-context-pill" id="chatContextPill"></div>
+            <div class="chat-input-box">
+              <textarea id="chatInput" placeholder="Descreva a tarefa para o agente…" rows="1" maxlength="8000"></textarea>
+              <button class="btn-send" id="sendBtn" disabled>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+                </svg>
+              </button>
+            </div>
+            <div class="chat-hint">Enter para enviar · Shift+Enter nova linha</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
