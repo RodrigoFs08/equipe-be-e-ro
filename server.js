@@ -3,110 +3,45 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const Anthropic = require('@anthropic-ai/sdk');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3030;
 
-const BASE = __dirname;
-const DOCS_DIR  = process.env.DOCS_DIR   ? path.resolve(process.env.DOCS_DIR)   : path.join(BASE, 'docs');
-const SQUADS_DIR = process.env.SQUADS_DIR ? path.resolve(process.env.SQUADS_DIR) : path.join(BASE, 'squads');
+// ─── Paths ────────────────────────────────────────────────────────────────────
+// AIOS_CORE_DIR é o projeto raiz onde o claude roda (onde está o CLAUDE.md, squads, etc.)
+const AIOS_CORE_DIR = process.env.AIOS_CORE_DIR
+  ? path.resolve(process.env.AIOS_CORE_DIR)
+  : path.resolve(__dirname, '../../Downloads/beatriz-rodrigo/aios-core');
+
+const DOCS_DIR = path.join(AIOS_CORE_DIR, 'docs');
+
+const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 
 const READABLE_EXTS = new Set(['.md', '.yaml', '.yml', '.json', '.txt', '.html', '.js', '.ts']);
 
-// ─── Briefing context (loaded once) ──────────────────────────────────────────
-const briefingPath = path.join(DOCS_DIR, 'briefing.md');
-const BRIEFING = fs.existsSync(briefingPath)
-  ? fs.readFileSync(briefingPath, 'utf8').slice(0, 8000)
-  : '';
+// ─── File watcher clients (SSE) ───────────────────────────────────────────────
+const watchClients = new Set();
 
-// ─── Simple YAML field extractor (no external dep) ───────────────────────────
-function ymlField(content, field) {
-  const re = new RegExp(`^\\s*${field}:\\s*["']?(.+?)["']?\\s*$`, 'm');
-  const m = content.match(re);
-  return m ? m[1].trim() : null;
+function notifyWatchers(event, filePath) {
+  const msg = `data: ${JSON.stringify({ event, path: filePath })}\n\n`;
+  for (const res of watchClients) {
+    try { res.write(msg); } catch (_) {}
+  }
 }
 
-function extractYamlBlock(content) {
-  const m = content.match(/```yaml\n([\s\S]*?)```/);
-  return m ? m[1] : '';
-}
-
-function agentField(agentMd, field) {
-  const block = extractYamlBlock(agentMd);
-  return ymlField(block, field);
-}
-
-// ─── Squad loader ─────────────────────────────────────────────────────────────
-const SQUAD_ICONS = {
-  'copy-squad':       '✍️',
-  'brand-squad':      '🎨',
-  'hormozi-squad':    '💰',
-  'traffic-masters':  '📈',
-  'advisory-board':   '🎩',
-  'storytelling':     '📖',
-  'cybersecurity':    '🔒',
-  'data-squad':       '📊',
-  'design-squad':     '🖌️',
-  'c-level-squad':    '🏢',
-  'movement':         '🌊',
-  'claude-code-mastery': '🤖',
-};
-
-function loadSquads() {
-  if (!fs.existsSync(SQUADS_DIR)) return [];
-
-  return fs.readdirSync(SQUADS_DIR, { withFileTypes: true })
-    .filter(e => e.isDirectory() && !e.name.startsWith('.'))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(e => {
-      const id = e.name;
-      const dir = path.join(SQUADS_DIR, id);
-
-      // Read squad.yaml for metadata
-      let name = id, description = '';
-      const configPath = path.join(dir, 'squad.yaml');
-      if (fs.existsSync(configPath)) {
-        const yml = fs.readFileSync(configPath, 'utf8');
-        name = ymlField(yml, 'short-title') || id;
-        description = ymlField(yml, 'description') || '';
-      }
-
-      // Discover agents from agents/ dir
-      const agentsDir = path.join(dir, 'agents');
-      const agents = [];
-      if (fs.existsSync(agentsDir)) {
-        for (const f of fs.readdirSync(agentsDir).filter(f => f.endsWith('.md')).sort()) {
-          const agentId = f.replace('.md', '');
-          const content = fs.readFileSync(path.join(agentsDir, f), 'utf8');
-          const agentName = agentField(content, 'name') || agentId;
-          const icon = agentField(content, 'icon') || '🤖';
-          const tier = parseInt(agentField(content, 'tier') || '1', 10);
-          const whenToUse = agentField(content, 'whenToUse') || '';
-          agents.push({ id: agentId, name: agentName.replace(/['"]/g, ''), icon, tier, whenToUse });
-        }
-      }
-
-      // Sort: tier 0 (orchestrators) first
-      agents.sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
-
-      return { id, name, icon: SQUAD_ICONS[id] || '🤖', description, agents };
+// Watch AIOS_CORE_DIR docs dir for any .md changes
+if (fs.existsSync(DOCS_DIR)) {
+  try {
+    fs.watch(DOCS_DIR, { recursive: true }, (eventType, filename) => {
+      if (!filename) return;
+      const ext = path.extname(filename).toLowerCase();
+      if (!READABLE_EXTS.has(ext)) return;
+      notifyWatchers(eventType, filename);
     });
-}
-
-// ─── Cache squads at startup ──────────────────────────────────────────────────
-let SQUADS_CACHE = [];
-try {
-  SQUADS_CACHE = loadSquads();
-  console.log(`  Squads carregados: ${SQUADS_CACHE.map(s => s.id).join(', ')}`);
-} catch (err) {
-  console.error('  Erro ao carregar squads:', err.message);
-}
-
-function getAgentDefinition(squadId, agentId) {
-  const agentFile = path.join(SQUADS_DIR, squadId, 'agents', `${agentId}.md`);
-  if (!fs.existsSync(agentFile)) return null;
-  return fs.readFileSync(agentFile, 'utf8');
+  } catch (err) {
+    console.warn('  fs.watch não disponível:', err.message);
+  }
 }
 
 // ─── Doc helpers ─────────────────────────────────────────────────────────────
@@ -138,7 +73,7 @@ function safeRead(relPath, base) {
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '200kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Docs API ─────────────────────────────────────────────────────────────────
@@ -151,7 +86,7 @@ app.get('/api/file', (req, res) => {
   const { p } = req.query;
   if (!p) return res.status(400).json({ error: 'Missing path' });
   const content = safeRead(p, DOCS_DIR);
-  if (!content) return res.status(404).json({ error: 'Not found' });
+  if (content === null) return res.status(404).json({ error: 'Not found' });
   res.json({ content, path: p });
 });
 
@@ -175,33 +110,48 @@ app.get('/api/search', (req, res) => {
   res.json({ results: results.slice(0, 40) });
 });
 
-// ─── Squads API ───────────────────────────────────────────────────────────────
-app.get('/api/squads', (_req, res) => {
-  res.json(SQUADS_CACHE.map(s => ({
-    id: s.id, name: s.name, icon: s.icon, description: s.description,
-    agents: s.agents.map(a => ({ id: a.id, name: a.name, icon: a.icon, tier: a.tier, whenToUse: a.whenToUse })),
-  })));
+// ─── File watcher SSE ─────────────────────────────────────────────────────────
+app.get('/api/watch', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  res.write('data: {"event":"connected"}\n\n');
+
+  watchClients.add(res);
+
+  const keepAlive = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (_) {}
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    watchClients.delete(res);
+  });
 });
 
-// ─── Chat API (SSE streaming) ─────────────────────────────────────────────────
-app.post('/api/chat', async (req, res) => {
-  const { messages, squadId, agentId } = req.body;
-  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'Invalid messages' });
+// ─── Config API ───────────────────────────────────────────────────────────────
+app.get('/api/config', (_req, res) => {
+  res.json({
+    aiosCoreDir: AIOS_CORE_DIR,
+    docsDir: DOCS_DIR,
+    claudeBin: CLAUDE_BIN,
+    ready: fs.existsSync(AIOS_CORE_DIR),
+  });
+});
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY não configurado.' });
+// ─── Claude CLI — streaming chat ──────────────────────────────────────────────
+// POST /api/claude
+// Body: { message: string, sessionId?: string }
+// Response: SSE stream (stream-json events)
+app.post('/api/claude', (req, res) => {
+  const { message, sessionId } = req.body;
+  if (!message) return res.status(400).json({ error: 'message required' });
 
-  // Build system prompt from actual squad agent definition
-  let systemPrompt = '';
-  if (squadId && agentId) {
-    const agentDef = getAgentDefinition(squadId, agentId);
-    if (agentDef) {
-      systemPrompt = `# CONTEXTO DO PROJETO\n\n${BRIEFING}\n\n---\n\n# DEFINIÇÃO DO AGENTE\n\n${agentDef}`;
-    }
-  }
-
-  if (!systemPrompt) {
-    systemPrompt = `Você é um assistente especializado para o projeto Beatriz & Rodrigo.\n\n${BRIEFING}`;
+  if (!fs.existsSync(AIOS_CORE_DIR)) {
+    return res.status(500).json({
+      error: `AIOS_CORE_DIR não encontrado: ${AIOS_CORE_DIR}. Configure a variável AIOS_CORE_DIR.`,
+    });
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -209,32 +159,120 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const client = new Anthropic({ apiKey });
+  // Build claude args
+  const args = [
+    '--print', message,
+    '--output-format', 'stream-json',
+    '--include-partial-messages',
+    '--permission-mode', 'bypassPermissions',
+  ];
 
-  try {
-    const stream = client.messages.stream({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-    });
+  // Session continuity
+  if (sessionId) {
+    args.push('--resume', sessionId);
+  }
 
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-        res.write(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`);
+  const proc = spawn(CLAUDE_BIN, args, {
+    cwd: AIOS_CORE_DIR,
+    env: { ...process.env, PATH: process.env.PATH },
+  });
+
+  let buf = '';
+  let currentToolUseId = null;
+
+  function send(obj) {
+    try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch (_) {}
+  }
+
+  proc.stdout.on('data', chunk => {
+    buf += chunk.toString();
+    const lines = buf.split('\n');
+    buf = lines.pop(); // keep incomplete line
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      let parsed;
+      try { parsed = JSON.parse(line); }
+      catch (_) {
+        // Non-JSON output: send as raw text
+        send({ type: 'text', text: line + '\n' });
+        continue;
+      }
+
+      const t = parsed.type;
+
+      // Assistant message (may contain text + tool_use blocks)
+      if (t === 'assistant') {
+        for (const block of parsed.message?.content || []) {
+          if (block.type === 'text' && block.text) {
+            send({ type: 'text', text: block.text });
+          } else if (block.type === 'tool_use') {
+            currentToolUseId = block.id;
+            send({ type: 'tool_use', name: block.name, input: block.input, id: block.id });
+          }
+        }
+      }
+
+      // Tool result
+      else if (t === 'tool') {
+        for (const c of parsed.content || []) {
+          if (c.type === 'tool_result') {
+            send({ type: 'tool_result', tool_use_id: parsed.tool_use_id, content: c.content });
+          }
+        }
+      }
+
+      // Session result (end)
+      else if (t === 'result') {
+        send({
+          type: 'result',
+          subtype: parsed.subtype,
+          session_id: parsed.session_id,
+          cost_usd: parsed.cost_usd,
+          error: parsed.error,
+        });
+      }
+
+      // System init
+      else if (t === 'system' && parsed.subtype === 'init') {
+        send({ type: 'system_init', session_id: parsed.session_id, tools: parsed.tools });
       }
     }
-    res.write('data: [DONE]\n\n');
+  });
+
+  proc.stderr.on('data', chunk => {
+    const text = chunk.toString();
+    // Filter out noise; send meaningful errors
+    if (text.includes('Error') || text.includes('error')) {
+      send({ type: 'error', text });
+    }
+  });
+
+  proc.on('error', err => {
+    send({ type: 'error', text: `Falha ao iniciar claude: ${err.message}. Verifique se o claude CLI está instalado e autenticado.` });
+    send({ type: 'done' });
     res.end();
-  } catch (err) {
-    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+  });
+
+  proc.on('close', code => {
+    if (buf.trim()) {
+      try { const last = JSON.parse(buf); if (last.type === 'result') send({ type: 'result', session_id: last.session_id, subtype: last.subtype }); }
+      catch (_) {}
+    }
+    send({ type: 'done' });
     res.end();
-  }
+  });
+
+  req.on('close', () => {
+    try { proc.kill('SIGTERM'); } catch (_) {}
+  });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n  Equipe Beatriz & Rodrigo`);
   console.log(`  → http://localhost:${PORT}`);
-  console.log(`  Squads: ${SQUADS_CACHE.length} | Docs: ${DOCS_DIR}\n`);
+  console.log(`  AIOS Core: ${AIOS_CORE_DIR} ${fs.existsSync(AIOS_CORE_DIR) ? '✓' : '✗ NÃO ENCONTRADO'}`);
+  console.log(`  Claude:    ${CLAUDE_BIN}\n`);
 });

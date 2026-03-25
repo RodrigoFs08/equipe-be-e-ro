@@ -11,7 +11,6 @@
   <link rel="stylesheet" id="hlTheme" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
 </head>
 <body>
-  <!-- Topbar -->
   <header class="topbar">
     <div class="topbar-left">
       <button class="btn-icon sidebar-toggle" id="sidebarToggle">
@@ -28,7 +27,7 @@
     </div>
 
     <div class="topbar-center">
-      <div class="search-box" id="searchBox">
+      <div class="search-box">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
@@ -37,6 +36,10 @@
     </div>
 
     <div class="topbar-right">
+      <div class="session-badge hidden" id="sessionBadge" title="Sessão ativa">
+        <span class="session-dot"></span>
+        <span id="sessionLabel">sessão ativa</span>
+      </div>
       <div class="view-tabs">
         <button class="view-tab active" data-view="docs">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -46,9 +49,9 @@
         </button>
         <button class="view-tab" data-view="chat">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <polyline points="4,17 10,11 4,5"/><line x1="12" y1="19" x2="20" y2="19"/>
           </svg>
-          Agentes
+          Terminal
         </button>
       </div>
       <button class="btn-icon" id="themeToggle">
@@ -74,6 +77,10 @@
   <div class="layout">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span>Documentos</span>
+        <div class="watch-dot" id="watchDot" title="Aguardando mudanças..."></div>
+      </div>
       <div class="tree-scroll">
         <div class="tree" id="treeDocs">
           <div class="tree-loading"><span class="spinner"></span> Carregando…</div>
@@ -81,10 +88,8 @@
       </div>
     </aside>
 
-    <!-- Main -->
     <main class="content">
-
-      <!-- DOCS VIEW -->
+      <!-- ── DOCS VIEW ── -->
       <div class="view-panel active" id="view-docs">
         <div class="welcome" id="welcome">
           <div class="welcome-heart">
@@ -93,22 +98,22 @@
             </svg>
           </div>
           <h1>Equipe Beatriz & Rodrigo</h1>
-          <p>Explore os docs ou converse com os squads de agentes.</p>
+          <p>Explore os docs ou use o Terminal para criar conteúdo com os agentes.</p>
           <div class="welcome-stats">
             <div class="stat"><span id="statDocs">—</span><label>Documentos</label></div>
-            <div class="stat"><span id="statSquads">—</span><label>Squads</label></div>
           </div>
           <button class="btn-cta" onclick="switchView('chat')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4,17 10,11 4,5"/><line x1="12" y1="19" x2="20" y2="19"/>
             </svg>
-            Enviar tarefa para um squad
+            Abrir Terminal
           </button>
         </div>
+
         <article class="doc-view hidden" id="docView">
           <div class="doc-header">
             <div class="doc-breadcrumb" id="docBreadcrumb"></div>
-            <button class="btn-icon" id="copyPathBtn">
+            <button class="btn-icon" id="copyPathBtn" title="Copiar caminho">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
               </svg>
@@ -118,51 +123,78 @@
         </article>
       </div>
 
-      <!-- CHAT / AGENTS VIEW -->
+      <!-- ── TERMINAL / CLAUDE VIEW ── -->
       <div class="view-panel" id="view-chat">
-        <div class="chat-layout">
+        <div class="terminal-layout">
 
-          <!-- Squad selector -->
-          <div class="squad-selector" id="squadSelector">
-            <div class="selector-loading"><span class="spinner"></span> Carregando squads…</div>
-          </div>
-
-          <!-- Agent selector (shown after squad selection) -->
-          <div class="agent-selector hidden" id="agentSelector">
-            <div class="agent-selector-inner" id="agentSelectorInner"></div>
+          <!-- Terminal toolbar -->
+          <div class="terminal-bar">
+            <div class="terminal-bar-left">
+              <span class="terminal-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="4,17 10,11 4,5"/><line x1="12" y1="19" x2="20" y2="19"/>
+                </svg>
+              </span>
+              <span class="terminal-title">Claude Code</span>
+              <span class="terminal-cwd" id="terminalCwd"></span>
+            </div>
+            <div class="terminal-bar-right">
+              <button class="btn-sm" id="newSessionBtn" title="Nova conversa">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Nova conversa
+              </button>
+            </div>
           </div>
 
           <!-- Messages -->
-          <div class="chat-messages" id="chatMessages">
-            <div class="chat-welcome" id="chatWelcome">
-              <div class="chat-welcome-icon">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
+          <div class="terminal-messages" id="terminalMessages">
+            <div class="term-welcome" id="termWelcome">
+              <div class="term-welcome-ascii">
+                <pre>
+  ╔══════════════════════════════════════╗
+  ║   Equipe Beatriz &amp; Rodrigo           ║
+  ║   Claude Code — AIOX Framework       ║
+  ╚══════════════════════════════════════╝</pre>
               </div>
-              <p>Selecione um <strong>squad</strong> e um <strong>agente</strong> acima<br/>para começar a enviar tarefas.</p>
-              <div class="chat-suggestions hidden" id="chatSuggestions"></div>
+              <p>Digite uma mensagem para conversar com o Claude Code.<br/>
+              Ele tem acesso ao projeto AIOX completo — pode criar arquivos, ativar squads, gerar conteúdo.</p>
+              <div class="term-suggestions">
+                <button class="term-sugg">@copy-squad crie uma legenda para um Reels sobre comunicação no casal</button>
+                <button class="term-sugg">@storytelling monte um roteiro para o próximo vídeo do YouTube deles</button>
+                <button class="term-sugg">salve um arquivo docs/pauta-semana.md com ideias de conteúdo para esta semana</button>
+                <button class="term-sugg">liste os squads disponíveis e explique o que cada um faz</button>
+              </div>
+              <div class="term-status" id="termStatus"></div>
             </div>
           </div>
 
           <!-- Input -->
-          <div class="chat-input-area">
-            <div class="chat-context-pill" id="chatContextPill"></div>
-            <div class="chat-input-box">
-              <textarea id="chatInput" placeholder="Descreva a tarefa para o agente…" rows="1" maxlength="8000"></textarea>
-              <button class="btn-send" id="sendBtn" disabled>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="terminal-input-area">
+            <div class="terminal-input-row">
+              <span class="prompt-arrow">›</span>
+              <textarea
+                id="termInput"
+                placeholder="Digite uma tarefa ou mensagem para o Claude Code…"
+                rows="1"
+                maxlength="32000"
+              ></textarea>
+              <button class="btn-send" id="sendBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
                 </svg>
               </button>
             </div>
-            <div class="chat-hint">Enter para enviar · Shift+Enter nova linha</div>
+            <div class="terminal-hint">Enter para enviar · Shift+Enter nova linha · Esc para cancelar</div>
           </div>
         </div>
       </div>
-
     </main>
   </div>
+
+  <!-- New file toast -->
+  <div class="toast hidden" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
